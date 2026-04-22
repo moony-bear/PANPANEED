@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TerminalSquare, AlertCircle, Loader2, ChevronRight, Download, BrainCircuit, Send, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './index.css';
+import { jsonrepair } from 'jsonrepair';
 
 type Screen = 'create' | 'chapter' | 'report';
 
@@ -169,12 +170,15 @@ function extractJsonFromMarkdown(content: string): string {
   return cleaned;
 }
       
-      // 使用
-      const storyDataString = data.choices[0].message.content;
-      const cleanedContent = extractJsonFromMarkdown(storyDataString);
-      const newStory = JSON.parse(cleanedContent);
-      setGameStory(newStory);
-
+const rawContent = data.choices[0].message.content;
+let newStory;
+try {
+  newStory = extractAndRepairJson(rawContent);
+} catch (e) {
+  console.error('初始剧情解析失败:', e);
+  throw new Error('AI 返回的剧情格式异常，请重试或更换模型');
+}
+setGameStory(newStory);
       // Initialize Affection
       const initialAffection: Record<string, number> = {};
       if (newStory.npcs) {
