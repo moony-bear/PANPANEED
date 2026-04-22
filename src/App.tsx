@@ -717,3 +717,28 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
     </div>
   );
 }
+function extractAndRepairJson(content: string): any {
+  const tryParse = (text: string) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      let cleaned = text.trim();
+      
+      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        cleaned = codeBlockMatch[1];
+      }
+      
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+      }
+      
+      // 注意：这里需要 jsonrepair 库，确保已安装并导入
+      return JSON.parse(jsonrepair(cleaned));
+    }
+  };
+  
+  return tryParse(content);
+}
