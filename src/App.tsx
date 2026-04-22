@@ -141,7 +141,7 @@ useEffect(() => {
           targetUrl: `${apiUrlFromStorage}/chat/completions`, // 拼接为完整的 completions 地址
           model: modelFromStorage,
           messages: [{ role: 'user', content: generateStoryPrompt }],
-          max_tokens: 4000,  
+          max_tokens: 4000
         }),
       });
 
@@ -262,7 +262,7 @@ ${userMessage.content}
           targetUrl: `${apiUrlFromStorage}/chat/completions`,
           model: modelFromStorage,
           messages: [{ role: 'user', content: processActionPrompt }],
-          max_tokens: 4000,
+          max_tokens: 4000
         }),
       });
 
@@ -384,8 +384,8 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
             messages: [
               { role: "system", content: systemPromptContent },
               { role: "user", content: analysisUserPrompt }
-               max_tokens: 4000, 
             ],
+            max_tokens: 400
           }),
         });
 
