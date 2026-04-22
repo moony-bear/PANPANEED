@@ -149,22 +149,24 @@ useEffect(() => {
       if (!res.ok) {
         throw new Error(data.error?.message || 'Failed to generate reality matrix.');
       }
-      function extractJsonFromMarkdown(content: string): string {
-  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    return jsonMatch[1];
+function extractJsonFromMarkdown(content: string): string {
+  // 1. 去除首尾空白
+  let cleaned = content.trim();
+  
+  // 2. 匹配被 ```json ... ``` 或 ``` ... ``` 包裹的内容
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1];
   }
-  const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
-  if (codeMatch) {
-    return codeMatch[1];
-  }
-
-  const firstBrace = content.indexOf('{');
-  const lastBrace = content.lastIndexOf('}');
+  
+  // 3. 查找第一个 '{' 和最后一个 '}'，提取 JSON 部分（忽略前面的任何文字）
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return content.slice(firstBrace, lastBrace + 1);
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
   }
-  return content;
+  
+  return cleaned;
 }
       
       // 使用
