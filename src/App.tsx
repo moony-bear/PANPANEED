@@ -267,7 +267,9 @@ ${userMessage.content}
       });
 
 const data = await res.json();
-if (!res.ok) { ... }
+if (!res.ok) {
+  throw new Error(data.error?.message || 'Failed to process action.');
+}
 
 const rawContent = data.choices[0].message.content;
 const cleanedContent = extractJsonFromMarkdown(rawContent);
