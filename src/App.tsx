@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TerminalSquare, AlertCircle, Loader2, ChevronRight, Download, BrainCircuit, Send, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './index.css';
+import { jsonrepair } from 'jsonrepair';
 
 type Screen = 'create' | 'chapter' | 'report';
 
@@ -97,9 +98,9 @@ useEffect(() => {
 
 【一、风格与元素库（你必须从中智能选择）】
 剧本主风格库（选择一项为主）：
-现代都市、克苏鲁神话、修仙世界、校园背景、古代皇宫生存、赛博朋克、末日废土、星际科幻
+现代都市、克苏鲁神话、修仙世界、校园背景、古代皇宫生存、赛博朋克、末日废土、星际科幻、西幻
 流行叙事元素库（选择1-2项融合）：
-重生、穿越、复仇、系统/面板、预言/宿命、扮猪吃虎、反套路、规则怪谈
+重生、穿越、复仇、系统/面板、预言/宿命、扮猪吃虎、反套路、规则怪谈、真假千金、ABO先婚后爱、恐怖风快穿
 
 【二、SCS模型A判型要求（最高优先级）】
 8个章节分别侧重考察以下维度（可混合次要维度）：
@@ -141,19 +142,43 @@ useEffect(() => {
           targetUrl: `${apiUrlFromStorage}/chat/completions`, // 拼接为完整的 completions 地址
           model: modelFromStorage,
           messages: [{ role: 'user', content: generateStoryPrompt }],
+          max_tokens: 4000  
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        // 如果 AI 服务商返回错误（例如401 Unauthorized），data里会有详细信息
         throw new Error(data.error?.message || 'Failed to generate reality matrix.');
       }
-
-      // AI 服务商的响应现在被包裹在 choices 数组中
-      const storyDataString = data.choices[0].message.content;
-      const newStory = JSON.parse(storyDataString);
-      setGameStory(newStory);
+function extractJsonFromMarkdown(content: string): string {
+  // 1. 去除首尾空白
+  let cleaned = content.trim();
+  
+  // 2. 匹配被 ```json ... ``` 或 ``` ... ``` 包裹的内容
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1];
+  }
+  
+  // 3. 查找第一个 '{' 和最后一个 '}'，提取 JSON 部分（忽略前面的任何文字）
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+  
+  return cleaned;
+}
+      
+const rawContent = data.choices[0].message.content;
+let newStory;
+try {
+  newStory = extractAndRepairJson(rawContent);
+} catch (e) {
+  console.error('初始剧情解析失败:', e);
+  throw new Error('AI 返回的剧情格式异常，请重试或更换模型');
+}
+setGameStory(newStory);
 
       // Initialize Affection
       const initialAffection: Record<string, number> = {};
@@ -244,15 +269,31 @@ ${userMessage.content}
           targetUrl: `${apiUrlFromStorage}/chat/completions`,
           model: modelFromStorage,
           messages: [{ role: 'user', content: processActionPrompt }],
+          max_tokens: 4000
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'Failed to process action.');
-      }
+     const data = await res.json();
 
-      const responseData = JSON.parse(data.choices[0].message.content);
+if (!res.ok) {
+  throw new Error(data.error?.message || 'Failed to process action.');
+}
+
+const rawContent = data.choices[0].message.content;
+let responseData;
+try {
+  responseData = extractAndRepairJson(rawContent);
+} catch (e) {
+  console.error('JSON 解析最终失败，降级处理:', e);
+  responseData = {
+    narrative_response: rawContent,
+    npc_reactions: [],
+    scs_analysis: '',
+    vague_feedback: '你的行动在混沌中激起涟漪...'
+  };
+}
+
+// 后续使用 responseData 的代码不变
 
       const newMessages: ChatMessage[] = [];
       newMessages.push({ role: 'npc', content: responseData.narrative_response });
@@ -366,6 +407,7 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
               { role: "system", content: systemPromptContent },
               { role: "user", content: analysisUserPrompt }
             ],
+          max_tokens: 4000 
           }),
         });
 
