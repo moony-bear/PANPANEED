@@ -392,56 +392,6 @@ ${userMessage.content}
     setLoading(false);
   }
 };
-// 后续使用 responseData 的代码不变
-
-      const newMessages: ChatMessage[] = [];
-      newMessages.push({ role: 'npc', content: responseData.narrative_response });
-      
-      let consequenceText = responseData.narrative_response;
-
-      if (responseData.npc_reactions && responseData.npc_reactions.length > 0) {
-         const updatedAffection = { ...npcAffection };
-         responseData.npc_reactions.forEach((reaction: any) => {
-            newMessages.push({ role: 'npc', content: reaction.reaction, name: reaction.name });
-            consequenceText += `\n[${reaction.name}]: ${reaction.reaction}`;
-            if (reaction.affection_change) {
-              updatedAffection[reaction.name] = (updatedAffection[reaction.name] || 50) + Number(reaction.affection_change);
-            }
-         });
-         setNpcAffection(updatedAffection);
-      }
-
-      setChatHistory([...updatedHistory, ...newMessages]);
-      setLastVagueFeedback(responseData.vague_feedback || "你的潜意识完成了一次微小的坐标更新...");
-      
-      // Save to history and mark chapter complete
-      setPlayHistory([
-        ...playHistory,
-        {
-          chapterId: gameStory.chapters[currentChapterIndex].chapter_id,
-          chapterTitle: gameStory.chapters[currentChapterIndex].chapter_title,
-          openingNarrative: gameStory.chapters[currentChapterIndex].opening_narrative,
-          scenarioDescription: gameStory.chapters[currentChapterIndex].scenario_description,
-          chatHistory: [...updatedHistory, ...newMessages],
-          fullActionText: userMessage.content,
-          scsAnalysis: data.scs_analysis,
-          consequence: consequenceText,
-          vagueFeedback: data.vague_feedback
-        }
-      ]);
-
-      setChapterCompleted(true);
-
-    } catch (err: any) {
-      setError(err.message);
-      // Remove failed message to try again
-      setChatHistory(chatHistory);
-      setInputValue(userMessage.content);
-    } finally {
-      setLoading(false);
-    }
-  };
-
 
 // ... (rest of the imports)
 
