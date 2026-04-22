@@ -105,7 +105,7 @@ useEffect(() => {
     setLoadingPhase('Synthesizing Dimensional Reality based on Profile...');
     
     try {
-      const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
+const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
 
 【玩家角色档案】：
 代号：${playerName}
@@ -114,7 +114,7 @@ useEffect(() => {
 【你的工作流程】
 1. 分析档案中的关键信息（如玩家自述的性格倾向、职业、背景）。
 2. 从你的“风格库”中，智能选择一个最适合该档案的剧本主风格，并融合1-2个流行叙事元素。
-3. 生成一个包含8个章节、以及动态NPC阵容的完整剧情框架。不需要生成特定选项，选项将由玩家自由输入。
+3. 生成一个包含【总体目标】、8个【章节】（每章有具体目标）、以及【多个可能结局条件】的完整剧情框架。不需要生成特定选项，选项将由玩家自由输入。
 4. 整个框架必须严格遵循SCS模型A的判型逻辑，但所有判型意图必须隐藏在生动的剧情冲突中。
 5. 最终输出为严格的JSON格式，便于前端游戏引擎解析和呈现。
 
@@ -131,10 +131,16 @@ useEffect(() => {
 实感 (Sensing：Si/Se)：涉及细节观察、身体感受、权力压迫、资源掌控。
 直觉 (Intuition：Ni/Ne)：涉及隐喻象征、未来预见、潜在联系、发散联想。
 
-【返回JSON结构要求】（务必返回合规且可以直接被解析的JSON代码，不要有任何markdown转义，如下所示）：
+【返回JSON结构要求】（务必返回合规且可以直接被解析的JSON代码，不要有任何markdown转义）：
 {
   "game_title": "你生成的核心游戏标题",
   "world_setting": "详细的世界观背景设定",
+  "overall_goal": "玩家在整个游戏中需要达成的终极目标（例如：'揭开古宅的秘密并活着离开'、'在公司内斗中上位并保护家人'）。",
+  "ending_conditions": {
+    "true_ending": "触发真结局的条件描述（例如：'成功揭发真凶且与关键NPC好感度均高于60'）",
+    "normal_ending": "普通结局条件",
+    "bad_ending": "坏结局条件"
+  },
   "npcs": [
     { "name": "NPC名", "description": "NPC设定", "socionics_type_hidden": "隐含类型(例如:LSI)", "initial_affection": 50 }
   ],
@@ -142,11 +148,12 @@ useEffect(() => {
     {
       "chapter_id": 1,
       "chapter_title": "第X章标题",
+      "chapter_goal": "本章玩家需要达成的具体目标或面临的核心抉择（例如：'获取顾夜白的信任'、'在宫廷宴会中生存下来'）。",
       "opening_narrative": "开场叙事，将玩家代入情境",
       "scenario_description": "当下的具体场景和危机。必须促使玩家做出行动判断",
       "focus_dimension": "本章重点考察的模型A维度 (例如: 伦理 Fi/Fe)"
     }
-  ] (必须严格包含8个章节)
+  ] // 必须严格包含8个章节
 }`;
 
       const proxyUrl = '/api/ai-proxy';
@@ -230,91 +237,161 @@ setGameStory(newStory);
     setInputValue('');
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || loading || chapterCompleted) return;
+const handleSendMessage = async () => {
+  if (!inputValue.trim() || loading || chapterCompleted) return;
 
-    const userMessage: ChatMessage = { role: 'user', content: inputValue.trim() };
-    const updatedHistory = [...chatHistory, userMessage];
-    setChatHistory(updatedHistory);
-    setInputValue('');
-    
-    setLoading(true);
-    setLoadingPhase('Analyzing actions and calculating responses...');
+  const userMessage: ChatMessage = { role: 'user', content: inputValue.trim() };
+  const updatedHistory = [...chatHistory, userMessage];
+  setChatHistory(updatedHistory);
+  setInputValue('');
+  
+  setLoading(true);
+  setLoadingPhase('Analyzing actions and calculating responses...');
 
+  try {
+    // 从对话历史中提取上一次AI给出的世界状态追踪器
+    const lastAIResponse = updatedHistory.filter(msg => msg.role === 'npc').pop();
+    let currentWorldState = '';
     try {
-      const processActionPrompt = `你是一个TRPG游戏主持人(GM)，同时也是精通Socionics模型A的分析者。
-根据玩家在当前情境下的行动描述，生成合理的剧情发展，并分析玩家的SCS模型A特征。
+      const lastContent = lastAIResponse?.content || '';
+      const stateMatch = lastContent.match(/<!--WORLD_STATE: (.*?)-->/);
+      if (stateMatch) currentWorldState = stateMatch[1];
+    } catch {}
 
-【当前章节背景】:
-标题: ${gameStory.chapters[currentChapterIndex].chapter_title}
+    const processActionPrompt = `你是一个TRPG游戏主持人(GM)，同时也是精通Socionics模型A的分析者。
+根据玩家在当前情境下的行动描述，生成合理的剧情发展，并更新隐藏的世界状态。
+
+【故事大背景】:
+总体目标: ${gameStory.overall_goal || '探索这个世界，书写你的命运。'}
+世界设定: ${gameStory.world_setting}
+
+【当前章节】:
+第${currentChapterIndex + 1}章: ${gameStory.chapters[currentChapterIndex].chapter_title}
+章节目标: ${gameStory.chapters[currentChapterIndex].chapter_goal || '应对当前局面，做出关键选择'}
 背景说明: ${gameStory.chapters[currentChapterIndex].scenario_description}
-本章重点考察维度: ${gameStory.chapters[currentChapterIndex].focus_dimension}
+本章判型维度: ${gameStory.chapters[currentChapterIndex].focus_dimension}
 
 【玩家角色设定】:
 ${`[代号]: ${playerName}\n[自我评估设定]: ${playerProfile}`}
 
 【主要NPC阵营】:
-${gameStory.npcs.map((n:any) => `${n.name} (隐含类型: ${n.socionics_type_hidden})`).join(', ')}
+${gameStory.npcs.map((n:any) => `${n.name} (隐含类型: ${n.socionics_type_hidden}, 当前好感: ${npcAffection[n.name] || 50})`).join(', ')}
 
 【历史对话摘要】:
 ${updatedHistory.map((msg:any) => `${msg.role === 'user' ? '玩家行动' : '剧情/NPC'}: ${msg.content}`).join('\n')}
 
+【当前隐藏世界状态】:
+${currentWorldState || '游戏刚开始，尚无累积状态。'}
+
 【当前玩家行动输入】:
 ${userMessage.content}
 
-请根据玩家的行动，生成接下来的剧情发展，并分析玩家行动中体现的社会人格学(Socionics)特质。
-注意：NPC的行为和台词会随好感度变化，但变化方式必须符合其类型特质。
+请根据以上信息，执行以下任务：
+1. **生成剧情反馈**：对玩家的行动做出合理的叙事回应。NPC的反应必须符合其Socionics类型特质和当前好感度。
+2. **更新世界状态**：用一两句话总结当前累积的关键剧情进展（例如：'已获得书房钥匙；顾夜白好感度较低；地下室秘密尚未揭开'）。这将在后续对话中传递，用于追踪分支和结局。
+3. **判断章节结束**：根据玩家行动和章节目标，判断本章是否应该结束。如果目标已达成、目标已失败、或剧情发展到了自然的转折点，请将 chapter_ended 设为 true，并提供一段章节总结。
+4. **SCS分析**：分析玩家行动中体现的模型A区块特征（如Ego的自信、Super-ego的挣扎等），用于后台记录。
 
-【返回JSON结构要求】：
+【返回JSON结构要求】（必须严格遵守，不要添加额外解释）：
 {
-  "narrative_response": "你作为GM或者NPC对玩家行动的直接反馈（纯文本叙事）。不要包含任何判型内容，用作直接显示给玩家看的剧情文本",
+  "narrative_response": "纯文本叙事，直接显示给玩家。",
   "npc_reactions": [
-    { "name": "互动的NPC名", "reaction": "NPC的反应台词或行为", "affection_change": 5 (或-5等数值变化) }
+    { "name": "互动的NPC名", "reaction": "NPC的反应台词或行为", "affection_change": 5 }
   ],
-  "scs_analysis": "（仅供系统后台记录的分析）请根据SCS流派而不是MBTI判断。推断其伦理(Ethics)、逻辑(Logic)、实感(Sensing)、直觉(Intuition)的位置、符合哪个类型，注意使用scs的判断方式而不是单纯看强度。比如：玩家这一举动体现了怎样的模型A区块特征（是Ego的自信还是Super-id的试探等）。",
-  "vague_feedback": "充满诗意和谜语感的微小坐标更新隐喻(比如：你的潜意识重构了情感模块)。这句话将作为本回合结束时的系统提示语给玩家看。"
+  "world_state_update": "更新后的隐藏世界状态摘要（替换旧状态）。",
+  "scs_analysis": "后台SCS分析，不显示给玩家。",
+  "vague_feedback": "诗意隐喻，作为本回合系统提示。",
+  "chapter_ended": false,
+  "chapter_summary": "如果 chapter_ended 为 true，用一两句话总结本章关键事件和结果。否则留空。"
 }`;
 
-      const proxyUrl = '/api/ai-proxy';
-      const apiUrlFromStorage = localStorage.getItem('apiUrl');
-      const modelFromStorage = localStorage.getItem('apiModel');
-      const apiKeyFromStorage = localStorage.getItem('apiKey');
+    const proxyUrl = '/api/ai-proxy';
+    const apiUrlFromStorage = localStorage.getItem('apiUrl');
+    const modelFromStorage = localStorage.getItem('apiModel');
+    const apiKeyFromStorage = localStorage.getItem('apiKey');
 
-      const res = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKeyFromStorage}`,
-        },
-        body: JSON.stringify({
-          targetUrl: `${apiUrlFromStorage}/chat/completions`,
-          model: modelFromStorage,
-          messages: [{ role: 'user', content: processActionPrompt }],
-          max_tokens: 4000
-        }),
-      });
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKeyFromStorage}`,
+      },
+      body: JSON.stringify({
+        targetUrl: `${apiUrlFromStorage}/chat/completions`,
+        model: modelFromStorage,
+        messages: [{ role: 'user', content: processActionPrompt }],
+        max_tokens: 4000
+      }),
+    });
 
-const data = await res.json();
-if (!res.ok) {
-  throw new Error(data.error?.message || 'Failed to process action.');
-}
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Failed to process action.');
 
-const rawContent = data.choices[0].message.content;
-const cleanedContent = extractJsonFromMarkdown(rawContent);
+    const rawContent = data.choices[0].message.content;
+    let responseData;
+    try {
+      responseData = extractAndRepairJson(rawContent);
+    } catch (e) {
+      responseData = {
+        narrative_response: rawContent,
+        npc_reactions: [],
+        world_state_update: currentWorldState,
+        scs_analysis: '',
+        vague_feedback: '你的行动在混沌中激起涟漪...',
+        chapter_ended: false,
+        chapter_summary: ''
+      };
+    }
 
-let responseData;
-try {
-  responseData = JSON.parse(cleanedContent);
-} catch (e) {
-  console.error('JSON parse failed in handleSendMessage, raw content:', rawContent);
-  // 降级处理：把 AI 返回的整个内容当作旁白显示，游戏可以继续
-  responseData = {
-    narrative_response: rawContent,
-    npc_reactions: [],
-    scs_analysis: '',
-    vague_feedback: '你的行动在混沌中激起涟漪...'
-  };
-}
+    // 将世界状态嵌入到剧情文本中（作为注释，不显示给玩家）
+    const narrativeWithState = responseData.narrative_response + `\n<!--WORLD_STATE: ${responseData.world_state_update || ''}-->`;
+    const newMessages: ChatMessage[] = [];
+    newMessages.push({ role: 'npc', content: narrativeWithState });
+    
+    let consequenceText = responseData.narrative_response;
+    if (responseData.npc_reactions && responseData.npc_reactions.length > 0) {
+       const updatedAffection = { ...npcAffection };
+       responseData.npc_reactions.forEach((reaction: any) => {
+          newMessages.push({ role: 'npc', content: reaction.reaction, name: reaction.name });
+          consequenceText += `\n[${reaction.name}]: ${reaction.reaction}`;
+          if (reaction.affection_change) {
+            updatedAffection[reaction.name] = (updatedAffection[reaction.name] || 50) + Number(reaction.affection_change);
+          }
+       });
+       setNpcAffection(updatedAffection);
+    }
+
+    setChatHistory([...updatedHistory, ...newMessages]);
+    
+    if (responseData.chapter_ended === true) {
+      setChapterCompleted(true);
+      setLastVagueFeedback(responseData.vague_feedback || "本章节告一段落...");
+      setPlayHistory([
+        ...playHistory,
+        {
+          chapterId: gameStory.chapters[currentChapterIndex].chapter_id,
+          chapterTitle: gameStory.chapters[currentChapterIndex].chapter_title,
+          openingNarrative: gameStory.chapters[currentChapterIndex].opening_narrative,
+          scenarioDescription: gameStory.chapters[currentChapterIndex].scenario_description,
+          chatHistory: [...updatedHistory, ...newMessages],
+          fullActionText: userMessage.content,
+          scsAnalysis: responseData.scs_analysis || '',
+          consequence: consequenceText,
+          vagueFeedback: responseData.vague_feedback || ''
+        }
+      ]);
+    } else {
+      setLastVagueFeedback(responseData.vague_feedback || '');
+    }
+
+  } catch (err: any) {
+    setError(err.message);
+    setChatHistory(chatHistory);
+    setInputValue(userMessage.content);
+  } finally {
+    setLoading(false);
+  }
+};
 
 // 后续使用 responseData 的代码不变
 
@@ -371,25 +448,46 @@ try {
 
 // ... (inside App component)
 
-  const handleNextPhase = async () => {
-    if (currentChapterIndex < gameStory.chapters.length - 1) {
-      const nextIndex = currentChapterIndex + 1;
-      setCurrentChapterIndex(nextIndex);
-      initChapter(gameStory.chapters[nextIndex]);
-    } else {
-      // Game Over, Generate Report
-      setLoading(true);
-      setLoadingPhase('Extracting Deep Psychological Architecture...');
-      try {
-        const historyText = playHistory.map((h: any) => `
+ const handleNextPhase = async () => {
+  if (currentChapterIndex < gameStory.chapters.length - 1) {
+    const nextIndex = currentChapterIndex + 1;
+    setCurrentChapterIndex(nextIndex);
+    initChapter(gameStory.chapters[nextIndex]);
+  } else {
+    // Game Over, Generate Report with Ending
+    setLoading(true);
+    setLoadingPhase('Evaluating fate threads and extracting psychological architecture...');
+    try {
+      // 提取最终累积的世界状态（从最后一次AI响应中获取）
+      const allStateMessages = playHistory.flatMap(h => 
+        h.chatHistory.filter(m => m.role === 'npc' && m.content.includes('<!--WORLD_STATE:'))
+      );
+      const finalWorldState = allStateMessages.length > 0 
+        ? allStateMessages[allStateMessages.length - 1].content.match(/<!--WORLD_STATE: (.*?)-->/)?.[1] || ''
+        : '';
+
+      // 构建原有详细的历史记录文本
+      const historyText = playHistory.map((h: any) => `
 第${h.chapterId}章: ${h.chapterTitle}
 玩家总行动文本: ${h.fullActionText}
 后台SCS预判侧写: ${h.scsAnalysis}
 剧情后果: ${h.consequence}
-    `).join('\n');
+      `).join('\n');
 
-        const analysisUserPrompt = `玩家初始自述：
+      const analysisUserPrompt = `玩家初始自述：
 ${`[代号]: ${playerName}\n[自我评估设定]: ${playerProfile}`}
+
+故事世界设定：
+${gameStory.world_setting}
+总体目标：${gameStory.overall_goal || '无特定目标'}
+
+预设结局条件：
+真结局: ${gameStory.ending_conditions?.true_ending || '无'}
+普通结局: ${gameStory.ending_conditions?.normal_ending || '无'}
+坏结局: ${gameStory.ending_conditions?.bad_ending || '无'}
+
+最终累积的世界状态（关键flag与进度）：
+${finalWorldState || '无明显累积状态。'}
 
 剧情选择追踪日志与系统预判（包含SCS模型A判型依据）：
 ${historyText}
@@ -399,56 +497,63 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
 (极度厌恶为负值)
 
 任务：
-请你扮演一位精通SCS流派与古典模型A的Socionics专家。基于上述全过程隐秘收集的数据，为玩家撰写一份深层的认知类型分析报告。
+请你扮演一位精通SCS流派与古典模型A的Socionics专家，同时作为故事的最终讲述者。
+首先，根据【最终累积的世界状态】和【预设结局条件】，判断玩家触发了哪个结局（真/普通/坏），并用一段约200字的叙事描述这个结局，将其置于报告最前面。
+然后，基于上述全过程隐秘收集的数据，为玩家撰写一份深层的认知类型分析报告。
 
-【硬性要求】：
+【结局描述要求】：
+- 根据玩家实际达成的条件和世界状态，选择最符合的结局类型。
+- 叙事风格与游戏世界观一致，具有沉浸感。
+
+【SCS分析硬性要求】（不可丢失）：
 1. 坚决排除任何MBTI词汇。必须严格使用Socionics模型A的理论术语（例如：Ego/Super-Ego/Super-Id/Id区块结构，Mental(意识轨道)/Vital(潜意识轨道)，维度高低，或信息元素符号如Ti, Te, Fe, Fi, Se, Si, Ne, Ni）。务必注意使用scs的判断方式，分析功能在模型中的位置（而不是单纯看强度）。
 2. 文字风格必须是一位深邃、客观的专家在进行人格解构，带有赛博朋克深层剖析的氛围。不要输出直白的数字评分或轻浮的网发言论。
 3. 玩家在游玩时输入了自由文本。请根据他们的轨迹：
    - 评估其在处理困境时，哪些信息元素表现出了高维度（3D/4D，游刃有余、创新），哪些落在了痛点区块（如Super-Ego的一维/二维限制）。
    - 对比【玩家初始自述】和【实际行为】，指出其自我认知与模型A本我/超我区块可能存在的落差。
-   - 类间关系反推：依据玩家与NPC互动导致的最终好感度数值关系，推断该玩家与这三者的类间关系（例如：对冲、幻觉、双重、超我等），以佐证玩家最终可能的类型。
-4. 在报告的最后，给出 1-2种 最有根据的可能社会人格类型（如 ILI，EIE等全称缩写），并给出其心理认知结构上的发展建议。
+   - 类间关系反推：依据玩家与NPC互动导致的最终好感度数值关系，推断该玩家与这些NPC的类间关系（例如：对偶、激活、监督、冲突等），以佐证玩家最终可能的类型。
+4. 在报告的最后，给出1-2种最有根据的可能社会人格类型（如 ILI，EIE等全称缩写），并给出其心理认知结构上的发展建议。
 
-请直接输出评测长文，纯排版文本（可使用Markdown小标题）。字数800-1200字即可。`;
+【输出格式】：
+请直接输出评测长文，包含结局描述和SCS分析。可用Markdown小标题（如“## 最终结局”、“## 深层人格结构解析”）区分两部分。分析报告正文字数请保持在1000-2500字之间。`;
 
-        const proxyUrl = '/api/ai-proxy';
-        const apiUrlFromStorage = localStorage.getItem('apiUrl');
-        const modelFromStorage = localStorage.getItem('apiModel');
-        const apiKeyFromStorage = localStorage.getItem('apiKey');
+      const proxyUrl = '/api/ai-proxy';
+      const apiUrlFromStorage = localStorage.getItem('apiUrl');
+      const modelFromStorage = localStorage.getItem('apiModel');
+      const apiKeyFromStorage = localStorage.getItem('apiKey');
 
-        const res = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKeyFromStorage}`,
-          },
-          body: JSON.stringify({
-            targetUrl: `${apiUrlFromStorage}/chat/completions`,
-            model: modelFromStorage,
-            messages: [
-              { role: "system", content: systemPromptContent },
-              { role: "user", content: analysisUserPrompt }
-            ],
-            max_tokens: 400
-          }),
-        });
+      const res = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKeyFromStorage}`,
+        },
+        body: JSON.stringify({
+          targetUrl: `${apiUrlFromStorage}/chat/completions`,
+          model: modelFromStorage,
+          messages: [
+            { role: "system", content: systemPromptContent },
+            { role: "user", content: analysisUserPrompt }
+          ],
+          max_tokens: 4000   // 确保足够输出长文
+        }),
+      });
 
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error?.message || 'Failed to generate analysis.');
-        }
-
-        const analysisText = data.choices[0].message.content;
-        setFinalReport(analysisText);
-        setScreen('report');
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || 'Failed to generate analysis.');
       }
+
+      const fullReport = data.choices[0].message.content;
+      setFinalReport(fullReport);
+      setScreen('report');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+};
 
   const handleExportStory = () => {
     let content = `=================================\n`;
