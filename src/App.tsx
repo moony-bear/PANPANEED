@@ -99,7 +99,7 @@ useEffect(() => {
 剧本主风格库（选择一项为主）：
 现代都市、克苏鲁神话、修仙世界、校园背景、古代皇宫生存、赛博朋克、末日废土、星际科幻
 流行叙事元素库（选择1-2项融合）：
-重生、穿越、复仇、系统/面板、预言/宿命、扮猪吃虎、反套路、规则怪谈
+重生、穿越、复仇、系统/面板、预言/宿命、扮猪吃虎、反套路、规则怪谈、真假千金、ABO先婚后爱、恐怖风快穿
 
 【二、SCS模型A判型要求（最高优先级）】
 8个章节分别侧重考察以下维度（可混合次要维度）：
@@ -141,6 +141,7 @@ useEffect(() => {
           targetUrl: `${apiUrlFromStorage}/chat/completions`, // 拼接为完整的 completions 地址
           model: modelFromStorage,
           messages: [{ role: 'user', content: generateStoryPrompt }],
+          max_tokens: 4000,  
         }),
       });
 
@@ -151,8 +152,25 @@ useEffect(() => {
       }
 
       // AI 服务商的响应现在被包裹在 choices 数组中
+      function extractJsonFromMarkdown(content: string): string {
+        // 匹配被 ```json ... ``` 包裹的内容
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          return jsonMatch[1];
+        }
+        // 匹配被 ``` ... ``` 包裹的内容
+        const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+        if (codeMatch) {
+          return codeMatch[1];
+        }
+        // 如果没有 Markdown 标记，直接返回原内容
+        return content;
+      }
+      
+      // 使用
       const storyDataString = data.choices[0].message.content;
-      const newStory = JSON.parse(storyDataString);
+      const cleanedContent = extractJsonFromMarkdown(storyDataString);
+      const newStory = JSON.parse(cleanedContent);
       setGameStory(newStory);
 
       // Initialize Affection
@@ -244,6 +262,7 @@ ${userMessage.content}
           targetUrl: `${apiUrlFromStorage}/chat/completions`,
           model: modelFromStorage,
           messages: [{ role: 'user', content: processActionPrompt }],
+          max_tokens: 4000,
         }),
       });
 
@@ -365,6 +384,7 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
             messages: [
               { role: "system", content: systemPromptContent },
               { role: "user", content: analysisUserPrompt }
+               max_tokens: 4000, 
             ],
           }),
         });
