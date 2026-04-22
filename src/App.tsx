@@ -153,19 +153,25 @@ useEffect(() => {
 
       // AI 服务商的响应现在被包裹在 choices 数组中
       function extractJsonFromMarkdown(content: string): string {
-        // 匹配被 ```json ... ``` 包裹的内容
-        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          return jsonMatch[1];
-        }
-        // 匹配被 ``` ... ``` 包裹的内容
-        const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
-        if (codeMatch) {
-          return codeMatch[1];
-        }
-        // 如果没有 Markdown 标记，直接返回原内容
-        return content;
-      }
+  // 1. 优先匹配被 ```json ... ``` 包裹的内容
+  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    return jsonMatch[1];
+  }
+  // 2. 匹配被 ``` ... ``` 包裹的内容
+  const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+  if (codeMatch) {
+    return codeMatch[1];
+  }
+  // 3. 如果没有任何 Markdown 标记，尝试找到第一个 '{' 到最后一个 '}' 之间的内容
+  const firstBrace = content.indexOf('{');
+  const lastBrace = content.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return content.slice(firstBrace, lastBrace + 1);
+  }
+  // 4. 实在找不到，返回原内容（让后续 JSON.parse 抛出错误，由容错逻辑处理）
+  return content;
+}
       
       // 使用
       const storyDataString = data.choices[0].message.content;
@@ -266,12 +272,27 @@ ${userMessage.content}
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'Failed to process action.');
-      }
+const data = await res.json();
+if (!res.ok) { ... }
 
-      const responseData = JSON.parse(data.choices[0].message.content);
+const rawContent = data.choices[0].message.content;
+const cleanedContent = extractJsonFromMarkdown(rawContent);
+
+let responseData;
+try {
+  responseData = JSON.parse(cleanedContent);
+} catch (e) {
+  console.error('JSON parse failed in handleSendMessage, raw content:', rawContent);
+  // 降级处理：把 AI 返回的整个内容当作旁白显示，游戏可以继续
+  responseData = {
+    narrative_response: rawContent,
+    npc_reactions: [],
+    scs_analysis: '',
+    vague_feedback: '你的行动在混沌中激起涟漪...'
+  };
+}
+
+// 后续使用 responseData 的代码不变
 
       const newMessages: ChatMessage[] = [];
       newMessages.push({ role: 'npc', content: responseData.narrative_response });
