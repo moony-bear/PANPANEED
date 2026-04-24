@@ -1,33 +1,29 @@
 SCS（古典社会人格学）模型A判型系统内置参考资料
 
-注：表格顺序严格按照 1-2 | 3-4 | 5-6 | 7-8 排列
-----------------------------------------------------------------------------------------
-类型代码(别名)     | Ego (自我) | Super-Ego (超我) | Super-Id (超本我) | Id (本我)
-                   | 1.主导 2.创造| 3.角色 4.薄弱    | 5.暗示 6.激活     | 7.忽略 8.演示
-----------------------------------------------------------------------------------------
-【Alpha / 阿尔法象限】
-ILE  |  Ne  -  Ti  |  Se  -  Fi     |  Si  -  Fe      |  Ni  -  Te
-SEI |  Si  -  Fe  |  Ni  -  Te     |  Ne  -  Ti      |  Se  -  Fi
-ESE |  Fe  -  Si  |  Te  -  Ni     |  Ti  -  Ne      |  Fi  -  Se
-LII  |  Ti  -  Ne  |  Fi  -  Se     |  Fe  -  Si      |  Te  -  Ni
+16tim的功能顺序：
+[Alpha象限]
+ILE: { 1主导:Ne, 2创造:Ti, 3角色:Se, 4薄弱:Fi, 5暗示:Si, 6激活:Fe, 7忽略:Ni, 8演示:Te }
+SEI: { 1主导:Si, 2创造:Fe, 3角色:Ni, 4薄弱:Te, 5暗示:Ne, 6激活:Ti, 7忽略:Se, 8演示:Fi }
+ESE: { 1主导:Fe, 2创造:Si, 3角色:Te, 4薄弱:Ni, 5暗示:Ti, 6激活:Ne, 7忽略:Fi, 8演示:Se }
+LII: { 1主导:Ti, 2创造:Ne, 3角色:Fi, 4薄弱:Se, 5暗示:Fe, 6激活:Si, 7忽略:Te, 8演示:Ni }
 
-【Beta / 贝塔象限】
-SLE |  Se  -  Ti  |  Ne  -  Fi     |  Ni  -  Fe      |  Si  -  Te
-IEI  |  Ni  -  Fe  |  Si  -  Te     |  Se  -  Ti      |  Ne  -  Fi
-EIE   |  Fe  -  Ni  |  Te  -  Si     |  Ti  -  Se      |  Fi  -  Ne
-LSI  |  Ti  -  Se  |  Fi  -  Ne     |  Fe  -  Ni      |  Te  -  Si
+[Beta象限]
+SLE: { 1主导:Se, 2创造:Ti, 3角色:Ne, 4薄弱:Fi, 5暗示:Ni, 6激活:Fe, 7忽略:Si, 8演示:Te }
+IEI: { 1主导:Ni, 2创造:Fe, 3角色:Si, 4薄弱:Te, 5暗示:Se, 6激活:Ti, 7忽略:Ne, 8演示:Fi }
+EIE: { 1主导:Fe, 2创造:Ni, 3角色:Te, 4薄弱:Si, 5暗示:Ti, 6激活:Se, 7忽略:Fi, 8演示:Ne }
+LSI: { 1主导:Ti, 2创造:Se, 3角色:Fi, 4薄弱:Ne, 5暗示:Fe, 6激活:Ni, 7忽略:Te, 8演示:Si }
 
-【Gamma / 伽马象限】
-SEE |  Se  -  Fi  |  Ne  -  Ti     |  Ni  -  Te      |  Si  -  Fe
-ILI  |  Ni  -  Te  |  Si  -  Fe     |  Se  -  Fi      |  Ne  -  Ti
-LIE  |  Te  -  Ni  |  Fe  -  Si     |  Fi  -  Se      |  Ti  -  Ne
-ESI |  Fi  -  Se  |  Ti  -  Ne     |  Te  -  Ni      |  Fe  -  Si
+[Gamma象限]
+SEE: { 1主导:Se, 2创造:Fi, 3角色:Ne, 4薄弱:Ti, 5暗示:Ni, 6激活:Te, 7忽略:Si, 8演示:Fe }
+ILI: { 1主导:Ni, 2创造:Te, 3角色:Si, 4薄弱:Fe, 5暗示:Se, 6激活:Fi, 7忽略:Ne, 8演示:Ti }
+LIE: { 1主导:Te, 2创造:Ni, 3角色:Fe, 4薄弱:Si, 5暗示:Fi, 6激活:Se, 7忽略:Ti, 8演示:Ne }
+ESI: { 1主导:Fi, 2创造:Se, 3角色:Ti, 4薄弱:Ne, 5暗示:Te, 6激活:Ni, 7忽略:Fe, 8演示:Si }
 
-【Delta / 德尔塔象限】
-IEE  |  Ne  -  Fi  |  Se  -  Ti     |  Si  -  Te      |  Ni  -  Fe
-SLI  |  Si  -  Te  |  Ni  -  Fe     |  Ne  -  Fi      |  Se  -  Ti
-LSE |  Te  -  Si  |  Fe  -  Ni     |  Fi  -  Ne      |  Ti  -  Se
-EII  |  Fi  -  Ne  |  Ti  -  Se     |  Te  -  Si      |  Fe  -  Ni
+[Delta象限]
+IEE: { 1主导:Ne, 2创造:Fi, 3角色:Se, 4薄弱:Ti, 5暗示:Si, 6激活:Te, 7忽略:Ni, 8演示:Fe }
+SLI: { 1主导:Si, 2创造:Te, 3角色:Ni, 4薄弱:Fe, 5暗示:Ne, 6激活:Fi, 7忽略:Se, 8演示:Ti }
+LSE: { 1主导:Te, 2创造:Si, 3角色:Fe, 4薄弱:Ni, 5暗示:Fi, 6激活:Ne, 7忽略:Ti, 8演示:Se }
+EII: { 1主导:Fi, 2创造:Ne, 3角色:Ti, 4薄弱:Se, 5暗示:Te, 6激活:Si, 7忽略:Fe, 8演示:Ni }
 一、核心理论框架
 1.1 SCS的定义与立场
 SCS（古典社会人格学派）严格遵循奥什拉·奥古斯蒂纳维丘特（Aushra Augustinavichute）创立的模型A理论，并回归卡尔·荣格的原初视角。其核心关注点在于人们的思维方式，而非外在行为表现或价值观。SCS明确区分于西方社会人格学（SWS）和SHS学派，强调通过模型A的结构进行演绎式分析，而非归纳式观察。
