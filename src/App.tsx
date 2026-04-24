@@ -513,17 +513,33 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
     content += `世界设定：${gameStory.world_setting}\n`;
     content += `---------------------------------\n\n`;
 
-    playHistory.forEach((item, index) => {
-      content += `【第${index + 1}章：${item.chapterTitle}】\n\n`;
-      content += `${item.openingNarrative}\n\n`;
-      content += `${item.scenarioDescription}\n\n`;
-      content += `★ 此时，你决定：\n${item.fullActionText}\n\n`;
-      content += `> ${item.consequence.replace(/\n/g, '\n> ')}\n\n`;
-      content += `[ ${item.vagueFeedback} ]\n\n`;
-      if (index < playHistory.length - 1) {
-          content += `---------------------------------\n\n`;
+  // 遍历已保存的章节历史
+  playHistory.forEach((item, index) => {
+    content += `【第${index + 1}章：${item.chapterTitle}】\n\n`;
+
+    // 遍历本章的完整对话记录
+    item.chatHistory.forEach((msg) => {
+      if (msg.role === 'user') {
+        // 玩家行动
+        content += `★ ${playerName} 行动：\n${msg.content}\n\n`;
+      } else if (msg.role === 'npc') {
+        if (msg.name) {
+          // NPC对话
+          content += `[${msg.name}]：\n${msg.content}\n\n`;
+        } else {
+          // 旁白/剧情描述
+          content += `${msg.content}\n\n`;
+        }
       }
     });
+
+    content += `---------------------------------\n`;
+    content += `[本章结束反馈: ${item.vagueFeedback || '无'}]\n\n`;
+    
+    if (index < playHistory.length - 1) {
+        content += `=================================\n\n`;
+    }
+  });
 
     content += `=================================\n`;
     content += `【最终分析报告】\n\n`;
