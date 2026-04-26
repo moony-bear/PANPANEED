@@ -91,6 +91,7 @@ export default function App() {
 const [selectedOCs, setSelectedOCs] = useState<string[]>([]);
 // 1. 添加状态来存储从 public 目录加载的提示词
 const [systemPromptContent, setSystemPromptContent] = useState('');
+const [showOCManager, setShowOCManager] = useState(false); // oc编辑器
 const [reviewChapterIndex, setReviewChapterIndex] = useState<number | null>(null);//剧情回顾组件
 
 // 2. 在组件挂载时加载提示词
@@ -699,6 +700,13 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
     <label htmlFor="oc-mode" className="text-sm text-cyan-300 cursor-pointer">
       启用 OC 模式（导入已保存的原创角色作为 NPC）
     </label>
+      {/* 就是这一行：新增的 OC 管理器入口按钮 */}
+  <button
+    onClick={() => setShowOCManager(!showOCManager)}
+    className="text-xs text-slate-400 hover:text-cyan-300 underline underline-offset-4 ml-2"
+  >
+    {showOCManager ? '关闭 OC 管理器' : '打开 OC 管理器'}
+  </button>
   </div>
 
   {/* OC 多选列表 */}
@@ -901,7 +909,21 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
                </div>
              </div>
         )}
+            {/* OC 管理器弹窗 */}
+      {showOCManager && (
+        <OCManager
+          onClose={() => setShowOCManager(false)}
+          onOCsUpdated={() => {
+            // OC 变化时，可在这里刷新列表
+            // 如果你的 OC 选择列表需要刷新，可以调用一个获取 OC 的函数
+          }}
+        />
+      )}
 
+      </main>   {/* ← 这个保持不变 */}
+    </div>
+  );
+}
       </main>
       {reviewChapterIndex !== null && (
   <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-start p-4">
