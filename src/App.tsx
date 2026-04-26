@@ -156,7 +156,9 @@ if (ocMode && onlyUseOC) {
     
     setLoading(true);
     setLoadingPhase('Synthesizing Dimensional Reality based on Profile...');
- const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
+ 
+    try {  
+         const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
 
 【玩家角色档案】：
 代号：${playerName}
