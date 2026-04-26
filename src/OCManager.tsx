@@ -1,74 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getOCList, saveOC, deleteOC, exportOCs, importOCs, OCCharacter, OCRelation } from './ocStorage';
 
-interface Props {
+interface OCManagerProps {
   onClose: () => void;
   onOCsUpdated: () => void;
 }
 
-const OCManager: React.FC<Props> = ({ onClose, onOCsUpdated }) => {
+const OCManager: React.FC<OCManagerProps> = ({ onClose, onOCsUpdated }) => {
   const [ocList, setOcList] = useState<OCCharacter[]>([]);
-  const [editingId, setEditingId] = useState<string | 'new' | null>(null);
+  const [editMode, setEditMode] = useState<string | 'new' | null>(null);
   const [editName, setEditName] = useState('');
   const [editPersonality, setEditPersonality] = useState('');
-  const [editSocType, setEditSocType] = useState('');
+  const [editSocionicsType, setEditSocionicsType] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
   const [editRelations, setEditRelations] = useState<OCRelation[]>([]);
+  const [importMessage, setImportMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setOcList(getOCList());
   }, []);
 
-  const refreshList = () => {
-    setOcList(getOCList());
-    onOCsUpdated();
-  };
-
-  const resetEdit = () => {
-    setEditingId(null);
+  const resetEditForm = () => {
     setEditName('');
     setEditPersonality('');
-    setEditSocType('');
+    setEditSocionicsType('');
     setEditAvatar('');
     setEditRelations([]);
   };
 
-  const openNew = () => {
-    setEditingId('new');
-    resetEdit();
+  const startCreate = () => {
+    resetEditForm();
+    setEditMode('new');
   };
 
-  const openEdit = (oc: OCCharacter) => {
-    setEditingId(oc.id);
+  const startEdit = (oc: OCCharacter) => {
     setEditName(oc.name);
     setEditPersonality(oc.personality);
-    setEditSocType(oc.socionicsType || '');
+    setEditSocionicsType(oc.socionicsType || '');
     setEditAvatar(oc.avatar || '');
-    setEditRelations(oc.relations ? [...oc.relations] : []);
-  };
-
-  const handleSave = () => {
-    if (!editName.trim()) return;
-    const id = editingId === 'new' ? Date.now().toString() : editingId!;
-    saveOC({
-      id,
-      name: editName.trim(),
-      personality: editPersonality.trim(),
-      socionicsType: editSocType.trim() || undefined,
-      avatar: editAvatar,
-      relations: editRelations,
-    });
-    refreshList();
-    resetEdit();
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('确定要删除这个 OC 吗？此操作不可恢复。')) {
-      deleteOC(id);
-      if (editingId === id) resetEdit();
-      refreshList();
-    }
+    setEditRelations(oc.relations || []);
+    setEditMode(oc.id);
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,25 +53,13 @@ const OCManager: React.FC<Props> = ({ onClose, onOCsUpdated }) => {
     reader.readAsDataURL(file);
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const ok = await importOCs(file);
-    if (ok) {
-      refreshList();
-      alert('导入成功！');
-    } else {
-      alert('导入失败，请检查文件格式。');
-    }
-  };
-
   const addRelation = () => {
-    setEditRelations([...editRelations, { targetName: '', relation: '至交' }]);
+    setEditRelations([...editRelations, { targetName: '', relation: '至交', detail: '' }]);
   };
 
   const updateRelation = (index: number, field: keyof OCRelation, value: string) => {
     const updated = [...editRelations];
-    updated[index] = { ...updated[index], [field]: value };
+    (updated[index] as any)[field] = value;
     setEditRelations(updated);
   };
 
@@ -107,194 +67,196 @@ const OCManager: React.FC<Props> = ({ onClose, onOCsUpdated }) => {
     setEditRelations(editRelations.filter((_, i) => i !== index));
   };
 
+  const handleSave = () => {
+    if (!editName.trim()) return;
+
+    const oc: OCCharacter = {
+      id: editMode === 'new' ? Date.now().toString() : editMode!,
+      name: editName.trim(),
+      personality: editPersonality.trim(),
+      socionicsType: editSocionicsType.trim() || undefined,
+      avatar: editAvatar,
+      relations: editRelations.filter(r => r.targetName.trim() !== ''),
+    };
+
+    saveOC(oc);
+    setOcList(getOCList());
+    setEditMode(null);
+    onOCsUpdated();
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('确定要删除这个 OC 角色吗？')) {
+      deleteOC(id);
+      setOcList(getOCList());
+      onOCsUpdated();
+    }
+  };
+
+  const handleExport = () => {
+    exportOCs();
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const success = await importOCs(file);
+    setImportMessage(success ? '导入成功！' : '文件格式错误，导入失败');
+    if (success) {
+      setOcList(getOCList());
+      onOCsUpdated();
+    }
+    setTimeout(() => setImportMessage(''), 3000);
+  };
+
+  const relationOptions: OCRelation['relation'][] = ['至交', '爱慕', '宿敌', '利用', '解救', '血缘'];
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto">
-      <div className="glass w-full max-w-2xl p-6 rounded-2xl space-y-6">
-        
-        {/* 头部 */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-cyan-400">OC 角色管理器</h2>
-          <button onClick={onClose} className="text-red-400 hover:text-red-300 text-sm">关闭</button>
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="glass w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden rounded-xl">
+        {/* 顶部标题栏 */}
+        <div className="p-4 border-b border-white/10 flex justify-between items-center shrink-0">
+          <h2 className="text-lg font-bold text-cyan-400">OC 角色管理器</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-400 text-sm">关闭</button>
         </div>
 
-        {/* 工具栏 */}
-        <div className="flex gap-3 flex-wrap">
-          <button onClick={openNew} className="px-4 py-2 bg-cyan-500 text-black rounded-lg text-sm font-bold">
-            + 创建新 OC
-          </button>
-          <button onClick={exportOCs} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-lg text-sm">
-            📤 导出全部
-          </button>
-          <label className="px-4 py-2 bg-slate-700 text-slate-200 rounded-lg text-sm cursor-pointer">
-            📥 导入
-            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-          </label>
-        </div>
+        {/* 主内容区 */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* 左侧角色列表 */}
+          <div className="w-1/3 border-r border-white/10 p-3 overflow-y-auto">
+            <div className="flex gap-2 mb-3">
+              <button onClick={startCreate} className="flex-1 text-xs bg-cyan-500 hover:bg-cyan-400 text-black py-2 rounded">
+                + 创建新 OC
+              </button>
+              <button onClick={handleExport} className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded">
+                导出
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded">
+                导入
+              </button>
+              <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+            </div>
+            {importMessage && <p className="text-xs text-green-400 mb-2">{importMessage}</p>}
 
-        {/* 角色列表 */}
-        <div className="space-y-2 max-h-60 overflow-y-auto">
-          {ocList.length === 0 && (
-            <p className="text-sm text-slate-500 text-center py-4">暂无已保存的 OC 角色，点击上方按钮创建。</p>
-          )}
-          {ocList.map((oc) => (
-            <div key={oc.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-              <div className="flex items-center gap-3">
+            {ocList.length === 0 && (
+              <p className="text-xs text-slate-500 text-center mt-8">暂无 OC 角色，点击上方按钮创建</p>
+            )}
+
+            {ocList.map(oc => (
+              <div key={oc.id} className={`p-2 rounded-lg mb-2 cursor-pointer flex items-center gap-2 ${editMode === oc.id ? 'bg-cyan-500/20 border border-cyan-500/50' : 'bg-white/5 hover:bg-white/10'}`} onClick={() => startEdit(oc)}>
                 {oc.avatar ? (
-                  <img src={oc.avatar} alt={oc.name} className="w-10 h-10 rounded-full object-cover" />
+                  <img src={oc.avatar} alt={oc.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-xs text-slate-300">
-                    {oc.name[0] || '?'}
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-xs shrink-0">OC</div>
                 )}
-                <div>
-                  <span className="text-sm font-medium text-white">{oc.name}</span>
-                  {oc.socionicsType && (
-                    <span className="text-xs text-cyan-400 ml-2">({oc.socionicsType})</span>
-                  )}
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-200 truncate">{oc.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{oc.socionicsType || '未设置类型'}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(oc)} className="text-xs text-cyan-400 hover:underline">编辑</button>
-                <button onClick={() => handleDelete(oc.id)} className="text-xs text-red-400 hover:underline">删除</button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* 编辑面板 */}
-        {editingId !== null && (
-          <div className="border-t border-white/10 pt-4 space-y-4">
-            <h3 className="text-sm font-bold text-cyan-300">
-              {editingId === 'new' ? '创建新 OC' : '编辑 OC'}
-            </h3>
+          {/* 右侧编辑面板 */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {editMode ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    {editAvatar ? (
+                      <img src={editAvatar} alt="头像" className="w-16 h-16 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-sm">头像</div>
+                    )}
+                    <label className="absolute bottom-0 right-0 w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center cursor-pointer text-xs text-black">
+                      +
+                      <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                    </label>
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="角色名称"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">角色名称 *</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500"
-                  placeholder="输入角色名称"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">性格设定</label>
-                <textarea
-                  value={editPersonality}
-                  onChange={(e) => setEditPersonality(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500 h-20 resize-none"
-                  placeholder="描述角色的性格、背景、核心特质..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">SCS 类型（可选）</label>
-                <input
-                  type="text"
-                  value={editSocType}
-                  onChange={(e) => setEditSocType(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500"
-                  placeholder="例如：ILI, EIE"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">角色头像</label>
-                <div className="flex items-center gap-3">
-                  {editAvatar ? (
-                    <img src={editAvatar} alt="头像预览" className="w-16 h-16 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-slate-600 flex items-center justify-center text-xs text-slate-400">
-                      无头像
-                    </div>
-                  )}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1 bg-slate-700 text-slate-200 rounded text-xs"
-                  >
-                    上传头像
-                  </button>
-                  {editAvatar && (
-                    <button
-                      onClick={() => setEditAvatar('')}
-                      className="px-3 py-1 bg-red-900/50 text-red-300 rounded text-xs"
-                    >
-                      移除
-                    </button>
-                  )}
+                <div>
+                  <label className="text-xs text-slate-400">SCS 类型（可选）</label>
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
+                    type="text"
+                    placeholder="如：ILI, EIE..."
+                    value={editSocionicsType}
+                    onChange={e => setEditSocionicsType(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500 mt-1"
                   />
                 </div>
-              </div>
 
-              {/* 关系编辑 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-slate-400">角色关系</label>
-                  <button onClick={addRelation} className="text-xs text-cyan-400 hover:underline">
-                    + 添加关系
-                  </button>
+                <div>
+                  <label className="text-xs text-slate-400">性格描述</label>
+                  <textarea
+                    placeholder="详细描述角色的性格特征、行为模式、核心动机..."
+                    value={editPersonality}
+                    onChange={e => setEditPersonality(e.target.value)}
+                    rows={3}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500 mt-1 resize-none"
+                  />
                 </div>
-                {editRelations.length === 0 && (
-                  <p className="text-xs text-slate-600">暂无预设关系，点击上方按钮添加。</p>
-                )}
-                {editRelations.map((rel, index) => (
-                  <div key={index} className="flex items-center gap-2 mb-2 flex-wrap">
-                    <select
-                      value={rel.relation}
-                      onChange={(e) => updateRelation(index, 'relation', e.target.value)}
-                      className="bg-white/5 border border-white/10 rounded p-1 text-xs text-white outline-none"
-                    >
-                      <option value="至交">至交</option>
-                      <option value="爱慕">爱慕</option>
-                      <option value="宿敌">宿敌</option>
-                      <option value="利用">利用</option>
-                      <option value="解救">解救</option>
-                      <option value="血缘">血缘</option>
-                    </select>
-                    <input
-                      type="text"
-                      value={rel.targetName}
-                      onChange={(e) => updateRelation(index, 'targetName', e.target.value)}
-                      placeholder="目标角色名"
-                      className="flex-1 min-w-[100px] bg-white/5 border border-white/10 rounded p-1 text-xs text-white outline-none focus:border-cyan-500"
-                    />
-                    <input
-                      type="text"
-                      value={rel.detail || ''}
-                      onChange={(e) => updateRelation(index, 'detail', e.target.value)}
-                      placeholder="补充说明"
-                      className="flex-1 min-w-[100px] bg-white/5 border border-white/10 rounded p-1 text-xs text-white outline-none focus:border-cyan-500"
-                    />
-                    <button
-                      onClick={() => removeRelation(index)}
-                      className="text-xs text-red-400 hover:underline shrink-0"
-                    >
-                      删除
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button onClick={handleSave} className="px-4 py-2 bg-cyan-500 text-black rounded-lg text-sm font-bold">
-                保存
-              </button>
-              <button onClick={resetEdit} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-lg text-sm">
-                取消
-              </button>
-            </div>
+                {/* 关系编辑器 */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs text-slate-400">与其他角色的关系</label>
+                    <button onClick={addRelation} className="text-xs text-cyan-400 hover:text-cyan-300">+ 添加关系</button>
+                  </div>
+                  {editRelations.map((rel, index) => (
+                    <div key={index} className="flex gap-2 mb-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="对方名字"
+                        value={rel.targetName}
+                        onChange={e => updateRelation(index, 'targetName', e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white outline-none focus:border-cyan-500"
+                      />
+                      <select
+                        value={rel.relation}
+                        onChange={e => updateRelation(index, 'relation', e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white outline-none focus:border-cyan-500"
+                      >
+                        {relationOptions.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="补充"
+                        value={rel.detail || ''}
+                        onChange={e => updateRelation(index, 'detail', e.target.value)}
+                        className="w-20 bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white outline-none focus:border-cyan-500"
+                      />
+                      <button onClick={() => removeRelation(index)} className="text-red-400 text-xs hover:text-red-300">✕</button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={handleSave} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm rounded">保存</button>
+                  <button onClick={() => setEditMode(null)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded">取消</button>
+                  {editMode !== 'new' && (
+                    <button onClick={() => { handleDelete(editMode!); setEditMode(null); }} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-sm rounded ml-auto">删除</button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                选择左侧已有角色进行编辑，或点击上方按钮创建新 OC
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
