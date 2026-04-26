@@ -128,9 +128,13 @@ if (ocMode && onlyUseOC) {
 - npcs 数组中**只能包含**玩家预设的这些 OC 角色，不要再额外生成任何新 NPC。
 - 你需要根据他们已有的关系网、性格和 SCS 类型，构建完整的故事，不需要创造新的配角。
 - 如果剧情需要路人或一次性角色，可以简单提及，但不要将他们列为有名字、有描述的正式 NPC。
-\n`;
-}
-
+\n`;            
+}              
+  const handleStartGame = async () => {
+    if (!playerName.trim() || !playerProfile.trim()) return;
+    
+    setLoading(true);
+    setLoadingPhase('Synthesizing Dimensional Reality based on Profile...');
  const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
 
 【玩家角色档案】：
