@@ -5,6 +5,26 @@ import './index.css';
 import { jsonrepair } from 'jsonrepair'
 import { getOCList, importOCs, type OCCharacter } from './ocStorage';
 
+function extractJsonFromMarkdown(content: string): string {
+  // 1. 去除首尾空白
+  let cleaned = content.trim();
+  
+  // 2. 匹配被 ```json ... ``` 或 ``` ... ``` 包裹的内容
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1];
+  }
+  
+  // 3. 查找第一个 '{' 和最后一个 '}'，提取 JSON 部分（忽略前面的任何文字）
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+  
+  return cleaned;
+}
+
 type Screen = 'create' | 'chapter' | 'report';
 
 interface ChatMessage {
@@ -213,25 +233,7 @@ if (ocMode && onlyUseOC) {
       if (!res.ok) {
         throw new Error(data.error?.message || 'Failed to generate reality matrix.');
       }
-function extractJsonFromMarkdown(content: string): string {
-  // 1. 去除首尾空白
-  let cleaned = content.trim();
-  
-  // 2. 匹配被 ```json ... ``` 或 ``` ... ``` 包裹的内容
-  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (codeBlockMatch) {
-    cleaned = codeBlockMatch[1];
-  }
-  
-  // 3. 查找第一个 '{' 和最后一个 '}'，提取 JSON 部分（忽略前面的任何文字）
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-  }
-  
-  return cleaned;
-}
+
       
       // 使用
       const storyDataString = data.choices[0].message.content;
