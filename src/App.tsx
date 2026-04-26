@@ -199,7 +199,7 @@ if (ocMode && onlyUseOC) {
           targetUrl: `${apiUrlFromStorage}/chat/completions`, // 拼接为完整的 completions 地址
           model: modelFromStorage,
           messages: [{ role: 'user', content: generateStoryPrompt }],
-          max_tokens: 4000  
+          max_tokens: 4000，  
            temperature: 0.8,
            presence_penalty: 0.4
         }),
@@ -355,7 +355,7 @@ ${userMessage.content}
         targetUrl: `${apiUrlFromStorage}/chat/completions`,
         model: modelFromStorage,
         messages: [{ role: 'user', content: processActionPrompt }],
-        max_tokens: 4000
+        max_tokens: 4000，
          temperature: 0.8,
         presence_penalty: 0.4
       }),
