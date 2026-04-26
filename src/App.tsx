@@ -922,8 +922,6 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
 
       </main>   {/* ← 这个保持不变 */}
     </div>
-  );
-}
       </main>
       {reviewChapterIndex !== null && (
   <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-start p-4">
