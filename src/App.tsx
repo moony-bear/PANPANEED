@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TerminalSquare, AlertCircle, Loader2, ChevronRight, Download, BrainCircuit, Send, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './index.css';
-import { jsonrepair } from 'jsonrepair';
+import { jsonrepair } from 'jsonrepair'
+import { getOCList, importOCs, type OCCharacter } from './ocStorage';
 
 type Screen = 'create' | 'chapter' | 'report';
 
@@ -46,6 +47,7 @@ function extractAndRepairJson(content: string): any {
     return JSON.parse(repaired);
   }
 }
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('create');
   const [loading, setLoading] = useState(false);
@@ -75,8 +77,12 @@ export default function App() {
 
   // Final Report
   const [finalReport, setFinalReport] = useState<any>(null);
+  const [ocMode, setOcMode] = useState(false);
+ const [onlyUseOC, setOnlyUseOC] = useState(false);    // ← 新增这一行，放在这里
+const [selectedOCs, setSelectedOCs] = useState<string[]>([]);
 // 1. 添加状态来存储从 public 目录加载的提示词
 const [systemPromptContent, setSystemPromptContent] = useState('');
+const [reviewChapterIndex, setReviewChapterIndex] = useState<number | null>(null);//剧情回顾组件
 
 // 2. 在组件挂载时加载提示词
 useEffect(() => {
@@ -97,15 +103,35 @@ useEffect(() => {
   useEffect(() => {
     scrollToBottom();
   }, [chatHistory, loading]);
+  // ========== 构建 OC 描述文本 ==========
+let ocNpcDescription = '';
+if (ocMode && selectedOCs.length > 0) {
+  const selectedCharacters = getOCList().filter(oc => selectedOCs.includes(oc.id));
+  ocNpcDescription = `\n【玩家预设的 NPC（OC 模式）】：
+你必须将这些角色和对应关系完整融入你生成的故事世界观中。他们应扮演符合自身设定的重要角色，并且按照其关系网与其他 NPC 或玩家角色互动。
+${selectedCharacters.map(oc => {
+    const relationText = oc.relations && oc.relations.length > 0
+      ? oc.relations.map(r => `${r.relation}：${r.targetName}${r.detail ? '(' + r.detail + ')' : ''}`).join('；')
+      : '无预设关系';
+    return `- 姓名：${oc.name}
+  性格设定：${oc.personality}
+  SCS类型推断：${oc.socionicsType || '未知'}
+  [与其他角色关系]：${relationText}`;
+}).join('\n')}
+\n`;
+}
+// 构建“仅 OC 模式”的特殊指令
+let onlyOCInstruction = '';
+if (ocMode && onlyUseOC) {
+  onlyOCInstruction = `\n【仅 OC 角色模式】：
+该模式下，你必须**只使用**上述玩家预设的 NPC 作为所有出场角色。
+- npcs 数组中**只能包含**玩家预设的这些 OC 角色，不要再额外生成任何新 NPC。
+- 你需要根据他们已有的关系网、性格和 SCS 类型，构建完整的故事，不需要创造新的配角。
+- 如果剧情需要路人或一次性角色，可以简单提及，但不要将他们列为有名字、有描述的正式 NPC。
+\n`;
+}
 
-  const handleStartGame = async () => {
-    if (!playerName.trim() || !playerProfile.trim()) return;
-    
-    setLoading(true);
-    setLoadingPhase('Synthesizing Dimensional Reality based on Profile...');
-    
-    try {
-const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
+ const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事，而是根据输入的【玩家角色档案】，生成一套完整的、符合SCS流派×模型A判型逻辑的、可供程序执行的多线剧情框架。
 
 【玩家角色档案】：
 代号：${playerName}
@@ -154,6 +180,8 @@ const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事
       "focus_dimension": "本章重点考察的模型A维度 (例如: 伦理 Fi/Fe)"
     }
   ] // 必须严格包含8个章节
+   ${ocNpcDescription}
+   ${onlyOCInstruction}
 }`;
 
       const proxyUrl = '/api/ai-proxy';
@@ -171,7 +199,9 @@ const generateStoryPrompt = `你的核心任务不是撰写一个固定的故事
           targetUrl: `${apiUrlFromStorage}/chat/completions`, // 拼接为完整的 completions 地址
           model: modelFromStorage,
           messages: [{ role: 'user', content: generateStoryPrompt }],
-          max_tokens: 4000
+          max_tokens: 4000  
+           temperature: 0.8,
+           presence_penalty: 0.4
         }),
       });
 
@@ -199,15 +229,12 @@ function extractJsonFromMarkdown(content: string): string {
   return cleaned;
 }
       
-const rawContent = data.choices[0].message.content;
-let newStory;
-try {
-  newStory = extractAndRepairJson(rawContent);
-} catch (e) {
-  console.error('初始剧情解析失败:', e);
-  throw new Error('AI 返回的剧情格式异常，请重试或更换模型');
-}
-setGameStory(newStory);
+      // 使用
+      const storyDataString = data.choices[0].message.content;
+      const cleanedContent = extractJsonFromMarkdown(storyDataString);
+      const newStory = JSON.parse(cleanedContent);
+      setGameStory(newStory);
+
       // Initialize Affection
       const initialAffection: Record<string, number> = {};
       if (newStory.npcs) {
@@ -237,7 +264,7 @@ setGameStory(newStory);
     setInputValue('');
   };
 
-const handleSendMessage = async () => {
+ const handleSendMessage = async () => {
   if (!inputValue.trim() || loading || chapterCompleted) return;
 
   const userMessage: ChatMessage = { role: 'user', content: inputValue.trim() };
@@ -259,7 +286,15 @@ const handleSendMessage = async () => {
     } catch {}
 
     const processActionPrompt = `你是一个TRPG游戏主持人(GM)，同时也是精通Socionics模型A的分析者。
-根据玩家在当前情境下的行动描述，生成合理的剧情发展，并更新隐藏的世界状态。
+根据玩家在当前情境下的行动描述，生成合理的剧情发展，并更新隐藏的世界状态。你的核心职责是创造引人入胜、细节丰富的叙事，同时考察玩家的认知模式。
+
+【叙事核心指令 - 必须遵守】：
+1. **展示，而非告知**：不要用一句话概括事件。请像小说一样描写场景的细节——环境氛围、人物的微表情、语气的变化、内心的迟疑。每次回复的叙事部分不少于200字。
+2. **主动制造困境与冲突**：根据章节目标和NPC的性格，主动引入新的变量、突发状况或道德两难。让局势复杂化，迫使玩家做出更深刻的思考和选择。如果当前局面太平稳，你可以引入一个新的事件刺激玩家。
+3. **NPC的深度互动**：NPC不会被动地等待提问。他们会根据自己的目标、性格和对玩家的好感度，主动发起对话、提出请求、隐瞒信息或试图说服玩家。
+4. **节制的章节推进**：本章节的叙事容量至少需要4-6轮有意义的互动才考虑结束。只有当玩家的行动已经对核心困境产生了决定性影响，且剧情到达自然收束点时，才将 chapter_ended 设为 true。过早结束会导致故事体验单薄。
+
+
 
 【故事大背景】:
 总体目标: ${gameStory.overall_goal || '探索这个世界，书写你的命运。'}
@@ -321,6 +356,8 @@ ${userMessage.content}
         model: modelFromStorage,
         messages: [{ role: 'user', content: processActionPrompt }],
         max_tokens: 4000
+         temperature: 0.8,
+        presence_penalty: 0.4
       }),
     });
 
@@ -392,6 +429,9 @@ ${userMessage.content}
     setLoading(false);
   }
 };
+
+
+
 
 // ... (rest of the imports)
 
@@ -513,33 +553,17 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
     content += `世界设定：${gameStory.world_setting}\n`;
     content += `---------------------------------\n\n`;
 
-  // 遍历已保存的章节历史
-  playHistory.forEach((item, index) => {
-    content += `【第${index + 1}章：${item.chapterTitle}】\n\n`;
-
-    // 遍历本章的完整对话记录
-    item.chatHistory.forEach((msg) => {
-      if (msg.role === 'user') {
-        // 玩家行动
-        content += `★ ${playerName} 行动：\n${msg.content}\n\n`;
-      } else if (msg.role === 'npc') {
-        if (msg.name) {
-          // NPC对话
-          content += `[${msg.name}]：\n${msg.content}\n\n`;
-        } else {
-          // 旁白/剧情描述
-          content += `${msg.content}\n\n`;
-        }
+    playHistory.forEach((item, index) => {
+      content += `【第${index + 1}章：${item.chapterTitle}】\n\n`;
+      content += `${item.openingNarrative}\n\n`;
+      content += `${item.scenarioDescription}\n\n`;
+      content += `★ 此时，你决定：\n${item.fullActionText}\n\n`;
+      content += `> ${item.consequence.replace(/\n/g, '\n> ')}\n\n`;
+      content += `[ ${item.vagueFeedback} ]\n\n`;
+      if (index < playHistory.length - 1) {
+          content += `---------------------------------\n\n`;
       }
     });
-
-    content += `---------------------------------\n`;
-    content += `[本章结束反馈: ${item.vagueFeedback || '无'}]\n\n`;
-    
-    if (index < playHistory.length - 1) {
-        content += `=================================\n\n`;
-    }
-  });
 
     content += `=================================\n`;
     content += `【最终分析报告】\n\n`;
@@ -664,7 +688,75 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
                    />
                  </div>
                </div>
-               
+               {/* OC 模式开关 */}
+<div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-6">
+  <div className="flex items-center gap-3">
+    <input 
+      type="checkbox" 
+      id="oc-mode" 
+      checked={ocMode} 
+      onChange={(e) => setOcMode(e.target.checked)} 
+      className="w-4 h-4 accent-cyan-500"
+    />
+    <label htmlFor="oc-mode" className="text-sm text-cyan-300 cursor-pointer">
+      启用 OC 模式（导入已保存的原创角色作为 NPC）
+    </label>
+  </div>
+
+  {/* OC 多选列表 */}
+  {ocMode && (
+    <div className="ml-7 space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
+          {/* ========== 新增的“仅使用 OC 角色”复选框放在这里 ========== */}
+      <label className="flex items-center gap-2 text-sm text-slate-400 border-b border-white/5 pb-3 mb-2">
+        <input 
+          type="checkbox" 
+          checked={onlyUseOC} 
+          onChange={(e) => setOnlyUseOC(e.target.checked)} 
+          className="w-4 h-4 accent-cyan-500"
+        />
+        仅使用这些 OC 角色（不额外生成 NPC）
+      </label>
+      <p className="text-xs text-slate-500 -mt-2 mb-4 ml-6">
+        勾选后，游戏中只会出现你选择的角色，AI 不会再自动添加其他 NPC。
+      </p>
+      {/* ========== 新增结束 ========== */}
+      <p className="text-xs text-slate-400 mb-3">勾选需要导入为 NPC 的角色：</p>
+      {getOCList().map((oc: OCCharacter) => (
+        <label key={oc.id} className="flex items-center gap-3 text-sm text-slate-300 cursor-pointer">
+          <input 
+            type="checkbox" 
+            checked={selectedOCs.includes(oc.id)} 
+            onChange={(e) => {
+              if(e.target.checked) {
+                setSelectedOCs([...selectedOCs, oc.id]);
+              } else {
+                setSelectedOCs(selectedOCs.filter(id => id !== oc.id));
+              }
+            }} 
+            className="w-4 h-4 accent-cyan-500"
+          />
+          {oc.avatar && (
+            <img src={oc.avatar} alt={oc.name} className="w-10 h-10 rounded-full object-cover border border-cyan-500/30" />
+          )}
+          <div>
+            <span className="text-cyan-200 font-medium">{oc.name}</span>
+            {oc.socionicsType && (
+              <span className="text-xs text-slate-400 ml-2">({oc.socionicsType})</span>
+            )}
+            {oc.relations && oc.relations.length > 0 && (
+              <span className="text-xs text-slate-500 block mt-0.5">
+                关系：{oc.relations.map(r => `${r.relation}:${r.targetName}`).join('、')}
+              </span>
+            )}
+          </div>
+        </label>
+      ))}
+      {getOCList().length === 0 && (
+        <p className="text-xs text-slate-500 italic">暂无已保存的 OC 角色，请先在 OC 管理器中创建。</p>
+      )}
+    </div>
+  )}
+</div>
                <div className="mt-8 flex justify-end">
                    <button
                      onClick={handleStartGame}
@@ -684,7 +776,14 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
                 <div className="shrink-0 p-6 border-b border-white/5 bg-black/20">
                    <div className="flex flex-col gap-1">
                      <span className="stat-label text-cyan-500/50">Phase_{String(currentChapterIndex + 1).padStart(2, '0')}</span>
-                     <h2 className="text-xl font-bold text-white tracking-tight">{gameStory.chapters[currentChapterIndex].chapter_title}</h2>
+                     <h2 className="text-xl font-bold text-white tracking-tight">{gameStory.chapters[currentChapterIndex].chapter_title}
+                     <button
+                            onClick={() => setReviewChapterIndex(currentChapterIndex)}
+                           className="text-xs text-cyan-400 hover:text-cyan-300 underline ml-4"
+                    >
+                      回顾本章
+                    </button>
+                     </h2>
                    </div>
                 </div>
 
@@ -806,6 +905,37 @@ ${Object.entries(npcAffection).map(([npc, score]) => `${npc}: ${score}`).join('\
         )}
 
       </main>
+      {reviewChapterIndex !== null && (
+  <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-start p-4">
+    <div className="glass w-full max-w-2xl h-[80vh] p-6 overflow-y-auto mt-10">
+      <div className="flex justify-between mb-4">
+        <h3 className="text-lg font-bold text-cyan-400">
+          回顾：{playHistory[reviewChapterIndex]?.chapterTitle || '未知章节'}
+        </h3>
+        <button
+          className="text-red-400 text-sm"
+          onClick={() => setReviewChapterIndex(null)}
+        >
+          关闭
+        </button>
+      </div>
+      <div className="space-y-4">
+        {playHistory[reviewChapterIndex]?.chatHistory.map((msg: any, idx: number) => (
+          <div key={idx} className={`${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+            {msg.name && <div className="text-xs text-cyan-300 mb-1">{msg.name}</div>}
+            <div className={`inline-block p-3 rounded-lg max-w-[80%] text-sm whitespace-pre-wrap ${
+              msg.role === 'user' 
+                ? 'bg-slate-800 text-slate-200' 
+                : 'bg-cyan-950/30 text-cyan-50 border border-cyan-500/20'
+            }`}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
