@@ -44,17 +44,6 @@ interface HistoryItem {
   consequence: string;
   vagueFeedback: string;
 }
-// 辅助函数：从 AI 返回的内容中提取纯 JSON 字符串
-// AI 有时会返回带 Markdown 代码块的格式，例如 ```json {...} ```
-function extractJsonFromMarkdown(content: string): string {
-  // 匹配 ```json 或 ``` 代码块
-  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) {
-    return codeBlockMatch[1].trim();
-  }
-  // 如果没有代码块，假设返回的就是纯 JSON
-  return content.trim();
-}
 
 // 辅助函数：提取并尝试修复 JSON（使用 jsonrepair 库）
 function extractAndRepairJson(content: string): any {
