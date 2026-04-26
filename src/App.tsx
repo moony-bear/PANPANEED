@@ -3,6 +3,7 @@ import { TerminalSquare, AlertCircle, Loader2, ChevronRight, Download, BrainCirc
 import ReactMarkdown from 'react-markdown';
 import './index.css';
 import { jsonrepair } from 'jsonrepair'
+import OCManager from './OCManager';
 import { getOCList, importOCs, type OCCharacter } from './ocStorage';
 
 function extractJsonFromMarkdown(content: string): string {
