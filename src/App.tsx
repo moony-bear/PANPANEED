@@ -123,7 +123,9 @@ useEffect(() => {
   useEffect(() => {
     scrollToBottom();
   }, [chatHistory, loading]);
-  // ========== 构建 OC 描述文本 ==========
+            
+  const handleStartGame = async () => {
+      // ========== 构建 OC 描述文本 ==========
 let ocNpcDescription = '';
 if (ocMode && selectedOCs.length > 0) {
   const selectedCharacters = getOCList().filter(oc => selectedOCs.includes(oc.id));
@@ -149,8 +151,7 @@ if (ocMode && onlyUseOC) {
 - 你需要根据他们已有的关系网、性格和 SCS 类型，构建完整的故事，不需要创造新的配角。
 - 如果剧情需要路人或一次性角色，可以简单提及，但不要将他们列为有名字、有描述的正式 NPC。
 \n`;            
-}              
-  const handleStartGame = async () => {
+}  
     if (!playerName.trim() || !playerProfile.trim()) return;
     
     setLoading(true);
