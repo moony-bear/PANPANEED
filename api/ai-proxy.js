@@ -19,7 +19,15 @@ export default async function handler(req, res) {
 
   try {
     // 4. 从请求体中获取目标 URL、模型名称和消息
-    const { targetUrl, model, messages } = req.body;
+    const {
+      targetUrl,
+      model,
+      messages,
+      temperature,
+      max_tokens,
+      presence_penalty,
+      response_format,
+    } = req.body;
     
     // 5. 从请求头中获取玩家提供的 API Key
     const apiKey = req.headers.authorization;
@@ -38,7 +46,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: model,
         messages: messages,
-        temperature: 0.7,
+        ...(typeof temperature === 'number' ? { temperature } : {}),
+        ...(typeof max_tokens === 'number' ? { max_tokens } : {}),
+        ...(typeof presence_penalty === 'number' ? { presence_penalty } : {}),
+        ...(response_format ? { response_format } : {}),
       }),
     });
 
